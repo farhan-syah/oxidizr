@@ -1,0 +1,56 @@
+[package]
+name = "oxidizr"
+version = "0.1.0"
+edition = "2021"
+authors = ["Farhan Syah <farhan@fs90.dev>"]
+description = "A Rust-based LLM training framework built on Candle"
+license = "MIT"
+repository = "https://github.com/farhan-syah/oxidizr"
+homepage = "https://github.com/farhan-syah/oxidizr"
+documentation = "https://github.com/farhan-syah/oxidizr/tree/main/docs"
+readme = "README.md"
+keywords = ["llm", "machine-learning", "transformer", "mamba", "training"]
+categories = ["science", "command-line-utilities"]
+exclude = [
+    "checkpoints/",
+    "runs/",
+    "tmp/",
+    "benchmark/",
+    "research/",
+    "debug/",
+    ".github/",
+]
+
+[features]
+default = []
+cuda = ["candle-core/cuda", "candle-nn/cuda"]
+# NCCL backend for high-performance multi-GPU gradient synchronization
+# Requires NCCL library installed on the system
+nccl = ["cuda"]
+
+[dependencies]
+# The Core ML Framework (git version for CUDA 13.x support)
+# For crates.io publishing, use Cargo.crates-io.toml (CUDA 12.x only)
+candle-core = { git = "https://github.com/huggingface/candle.git" }
+candle-nn = { git = "https://github.com/huggingface/candle.git" }
+candle-transformers = { git = "https://github.com/huggingface/candle.git" }
+
+# Data & Config
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+anyhow = "1.0"
+rand = "0.8"
+clap = { version = "4.5", features = ["derive"] }
+
+# UI/Logging
+indicatif = "0.17" # For nice progress bars
+log = "0.4"
+env_logger = "0.11"
+
+# Math
+half = "2.4" # For BF16/FP16 types
+chrono = "0.4.42"
+
+# Memory-mapped file I/O
+memmap2 = "0.9"

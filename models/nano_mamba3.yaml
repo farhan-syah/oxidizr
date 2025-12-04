@@ -1,0 +1,63 @@
+# Nano-Mamba3 Configuration
+# Pure Mamba3 version with all three innovations from ICLR 2026 paper:
+# 1. Trapezoidal Discretization - More expressive recurrence (replaces short conv)
+# 2. Complex-Valued SSM via RoPE - Data-dependent rotary embeddings for state tracking
+# 3. MIMO (Multi-Input Multi-Output) - Increased arithmetic intensity for inference
+#
+# ~60M parameters (same as nano.yaml hybrid)
+
+model:
+  hidden_size: 384 # MATCHES nano.yaml
+  num_layers: 8 # All Mamba3 layers
+  num_heads: 6 # Not used for pure Mamba3
+
+  # Legacy configs (not used for pure Mamba3)
+  kv_heads: null
+  kv_latent_dim: null
+  q_latent_dim: null
+  d_rope: null
+
+  # MoE config (not used for pure Mamba3)
+  num_experts: null
+  experts_per_tok: null
+  shared_expert_enabled: null
+  intermediate_size: null
+
+  # Pure Mamba3 architecture (all 8 layers are Mamba3)
+  mamba_layers: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # Mamba3 Configuration (extends Mamba2 base parameters)
+  mamba3_enabled: true # Enable Mamba-3 innovations
+  mamba3_complex_rope: true # Enable complex-valued RoPE for state tracking
+  mamba3_mimo_rank: 0 # SISO mode (use 4 for MIMO)
+  mamba3_use_conv: false # Trapezoidal discretization replaces conv
+
+  # Mamba2 base parameters (shared with Mamba3)
+  # CONSTRAINT: hidden_size * mamba2_expand == mamba2_num_heads * mamba2_head_dim
+  # Validation: 384 * 2 = 768 == 48 * 16 ✓
+  mamba2_num_heads: 48 # Number of SSM heads
+  mamba2_head_dim: 16 # Dimension per head
+  mamba2_state_size: 64 # SSM state dimension N
+  mamba2_chunk_size: 64 # Chunk size for SSD
+  mamba2_n_groups: 1 # Groups for efficient computation
+  mamba2_conv_kernel: 4 # Conv1D kernel size (if use_conv enabled)
+  mamba2_expand: 2 # Expansion factor (intermediate = 768)
+
+  vocab_size: 128354 # Llama 3 + splintr agent tokens
+  max_seq_len: 512 # MATCHES nano.yaml
+  rope_theta: 10000.0 # MATCHES nano.yaml
+
+trainer:
+  learning_rate: 0.0003
+  max_steps: 0 # 0 = unlimited, train for full epochs
+  num_epochs: 2
+  batch_size: 4
+  gradient_accumulation: 1
+  checkpoint_dir: "./checkpoints/nano-mamba3"
+  log_interval: 10
+  save_interval: 500
+  load_balance_alpha: 0.0 # No MoE
+
+  # GRPO config (not used for pretraining)
+  group_size: 4
+  beta_kl: 0.04

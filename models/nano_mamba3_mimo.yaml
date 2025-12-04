@@ -1,0 +1,62 @@
+# Nano-Mamba3 MIMO Configuration
+# Mamba-3 with MIMO (Multi-Input Multi-Output) enabled for better GPU utilization
+#
+# MIMO converts memory-bound inference to compute-bound, improving throughput
+# on modern GPUs at the cost of slightly more computation during training.
+#
+# ~65M parameters (slightly more due to MIMO projections)
+
+model:
+  hidden_size: 384
+  num_layers: 8
+  num_heads: 6
+
+  # Legacy configs (not used for pure Mamba3)
+  kv_heads: null
+  kv_latent_dim: null
+  q_latent_dim: null
+  d_rope: null
+
+  # MoE config (not used for pure Mamba3)
+  num_experts: null
+  experts_per_tok: null
+  shared_expert_enabled: null
+  intermediate_size: null
+
+  # Pure Mamba3 architecture (all 8 layers are Mamba3)
+  mamba_layers: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  # Mamba3 Configuration with MIMO
+  mamba3_enabled: true
+  mamba3_complex_rope: true # Enable complex-valued RoPE for state tracking
+  mamba3_mimo_rank: 4 # MIMO rank (4 is typical, higher = more compute)
+  mamba3_use_conv: false # Trapezoidal discretization replaces conv
+
+  # Mamba2 base parameters
+  # CONSTRAINT: hidden_size * mamba2_expand == mamba2_num_heads * mamba2_head_dim
+  # Validation: 384 * 2 = 768 == 48 * 16 ✓
+  mamba2_num_heads: 48
+  mamba2_head_dim: 16
+  mamba2_state_size: 64
+  mamba2_chunk_size: 64
+  mamba2_n_groups: 1
+  mamba2_conv_kernel: 4
+  mamba2_expand: 2
+
+  vocab_size: 128354
+  max_seq_len: 512
+  rope_theta: 10000.0
+
+trainer:
+  learning_rate: 0.0003
+  max_steps: 0
+  num_epochs: 2
+  batch_size: 4
+  gradient_accumulation: 1
+  checkpoint_dir: "./checkpoints/nano-mamba3-mimo"
+  log_interval: 10
+  save_interval: 500
+  load_balance_alpha: 0.0
+
+  group_size: 4
+  beta_kl: 0.04

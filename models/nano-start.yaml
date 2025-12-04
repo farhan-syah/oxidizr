@@ -1,0 +1,208 @@
+# =============================================================================
+# Nano-Start: Educational LLM Configuration
+# =============================================================================
+#
+# PURPOSE: Learn LLM training from scratch with a minimal but complete model
+#
+# This configuration demonstrates the FULL hybrid architecture:
+#   - Mamba2 (State Space Model) - efficient sequence processing
+#   - MLA (Multi-Head Latent Attention) - compressed attention mechanism
+#   - MoE (Mixture of Experts) - conditional computation
+#
+# TRAINING: ~6M parameters, trains in minutes on CPU
+# TOKENIZER: cl100k_base (GPT-4's vocabulary from splintr)
+# CONTEXT: 128 tokens (very short for fast iteration)
+#
+# =============================================================================
+
+model:
+  name: nano-start
+
+  # ---------------------------------------------------------------------------
+  # CORE DIMENSIONS
+  # ---------------------------------------------------------------------------
+  # These three parameters control the model's capacity:
+  #
+  # hidden_size: The "width" - how many numbers represent each token position
+  #   - Larger = more expressive but more memory/compute
+  #   - GPT-4 uses ~12,000, we use 128 for learning
+  #
+  # num_layers: The "depth" - how many times information is transformed
+  #   - More layers = more reasoning steps
+  #   - GPT-4 has ~120 layers, we use 4
+  #
+  # num_heads: For attention - how many parallel "perspectives" to consider
+  #   - Must evenly divide hidden_size
+  #   - We use 4 heads = 32 dimensions per head (128/4)
+
+  hidden_size: 128
+  num_layers: 4
+  num_heads: 4
+
+  # Legacy GQA config (null = use MLA instead)
+  kv_heads: null
+
+  # ---------------------------------------------------------------------------
+  # MLA (Multi-Head Latent Attention)
+  # ---------------------------------------------------------------------------
+  # Standard attention stores K,V for every token - expensive for long sequences!
+  # MLA compresses K,V to a smaller "latent" dimension, then projects back up.
+  #
+  # Benefits:
+  #   - 50% memory reduction in KV cache during inference
+  #   - Faster generation with minimal quality loss
+  #
+  # kv_latent_dim: Compressed size for keys and values (half of hidden)
+  # q_latent_dim: Compressed size for queries
+  # d_rope: Dimension for rotary position encoding (small is fine)
+
+  kv_latent_dim: 64
+  q_latent_dim: 64
+  d_rope: 8
+
+  # ---------------------------------------------------------------------------
+  # MoE (Mixture of Experts)
+  # ---------------------------------------------------------------------------
+  # Instead of one big feed-forward network, use multiple small "experts"
+  # A router network learns which expert(s) to use for each token.
+  #
+  # Benefits:
+  #   - More parameters without proportional compute increase
+  #   - Different experts can specialize in different token types
+  #
+  # num_experts: Total number of expert networks (2 for simplicity)
+  # experts_per_tok: How many experts process each token (Top-1 routing)
+  # shared_expert_enabled: Always-on expert that processes all tokens
+  # intermediate_size: Hidden dimension inside each expert (4x hidden)
+
+  num_experts: 2
+  experts_per_tok: 1
+  shared_expert_enabled: true
+  intermediate_size: 512
+
+  # ---------------------------------------------------------------------------
+  # HYBRID ARCHITECTURE
+  # ---------------------------------------------------------------------------
+  # Modern LLMs mix different layer types for efficiency:
+  #
+  # mamba_layers: Which layers use Mamba2 instead of attention
+  #   - [0, 1, 2] = first 3 layers are Mamba2
+  #   - Layer 3 (not in list) = MLA + MoE
+  #
+  # Mamba2 layers are fast and handle local patterns well
+  # MLA layers capture long-range dependencies via attention
+
+  mamba_layers: [0, 1, 2]
+
+  # ---------------------------------------------------------------------------
+  # MAMBA2 (State Space Duality)
+  # ---------------------------------------------------------------------------
+  # Mamba2 is a modern sequence model that processes in parallel chunks.
+  # Unlike traditional RNNs, it can be trained efficiently on GPUs.
+  #
+  # CRITICAL CONSTRAINT:
+  #   hidden_size * mamba2_expand == mamba2_num_heads * mamba2_head_dim
+  #   128 * 2 = 256 == 16 * 16 = 256  (verified!)
+  #
+  # mamba2_num_heads: Number of parallel SSM "heads" (like attention heads)
+  # mamba2_head_dim: Dimension per head
+  # mamba2_state_size: Hidden state size (recurrent memory)
+  # mamba2_chunk_size: Process this many tokens at once
+  # mamba2_expand: Expansion factor (intermediate dimension multiplier)
+  # mamba2_conv_kernel: 1D convolution kernel size (local context)
+
+  mamba2_num_heads: 16
+  mamba2_head_dim: 16
+  mamba2_state_size: 32
+  mamba2_chunk_size: 32
+  mamba2_n_groups: 1
+  mamba2_conv_kernel: 4
+  mamba2_expand: 2
+
+  # ---------------------------------------------------------------------------
+  # VOCABULARY AND CONTEXT
+  # ---------------------------------------------------------------------------
+  # vocab_size: Number of unique tokens the model can recognize
+  #   - cl100k_base: 100,256 base tokens (GPT-4's tokenizer)
+  #   - Special tokens: endoftext, fim_prefix, etc.
+  #   - Agent tokens: user, assistant, system, etc.
+  #   - Total: 100,315 (as reported by splintr)
+  #
+  # max_seq_len: Maximum context window (128 tokens = very short!)
+  #   - Short context trains faster and uses less memory
+  #   - Real LLMs use 4K-128K tokens
+  #
+  # rope_theta: RoPE (Rotary Position Embedding) base frequency
+  #   - Standard value is 10,000
+  #   - Higher values extend effective context length
+
+  vocab_size: 100315
+  max_seq_len: 64
+  rope_theta: 10000.0
+
+# =============================================================================
+# TRAINER CONFIGURATION
+# =============================================================================
+trainer:
+  # ---------------------------------------------------------------------------
+  # LEARNING RATE
+  # ---------------------------------------------------------------------------
+  # How big a step to take when updating weights
+  #   - Too high = unstable training, loss explodes
+  #   - Too low = slow learning, waste compute
+  #   - 0.001 is good for small models
+
+  learning_rate: 0.002
+
+  # ---------------------------------------------------------------------------
+  # BATCH SIZE AND ACCUMULATION
+  # ---------------------------------------------------------------------------
+  # batch_size: Examples processed in parallel (limited by memory)
+  # gradient_accumulation: Accumulate gradients over N batches before update
+  #
+  # Effective batch size = batch_size * gradient_accumulation
+  # Larger effective batch = more stable gradients but slower iteration
+
+  batch_size: 8
+  gradient_accumulation: 1
+
+  # ---------------------------------------------------------------------------
+  # TRAINING DURATION
+  # ---------------------------------------------------------------------------
+  # max_steps: Stop after N optimizer steps (0 = no limit)
+  # num_epochs: Number of complete passes through the dataset
+  #
+  # For nano-start, 20 epochs should be enough to overfit the small dataset
+
+  max_steps: 0
+  num_epochs: 20
+
+  # ---------------------------------------------------------------------------
+  # CHECKPOINTS AND LOGGING
+  # ---------------------------------------------------------------------------
+  # checkpoint_dir: Where to save model weights
+  # log_interval: Print loss every N steps
+  # save_interval: Save checkpoint every N steps
+  # max_checkpoints: Keep only the N most recent (saves disk space)
+
+  checkpoint_dir: "./checkpoints/nano-start"
+  log_interval: 20
+  save_interval: 200
+  max_checkpoints: 3
+
+  # ---------------------------------------------------------------------------
+  # MOE LOAD BALANCING
+  # ---------------------------------------------------------------------------
+  # Without regularization, the router might send all tokens to one expert
+  # load_balance_alpha: Auxiliary loss coefficient to encourage even routing
+
+  load_balance_alpha: 0.01
+
+  # ---------------------------------------------------------------------------
+  # GRPO CONFIG (Advanced - Phase 2)
+  # ---------------------------------------------------------------------------
+  # Group Relative Policy Optimization for RLHF
+  # Not used in basic training, but required by config parser
+
+  group_size: 4
+  beta_kl: 0.04

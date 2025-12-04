@@ -1,0 +1,54 @@
+# Nano-Mamba2 Configuration
+# Pure Mamba2 version matching nano dimensions for comparison
+# ~60M parameters (same as nano.yaml hybrid), uses State Space Duality (SSD) for 5-10x speedup
+
+model:
+  hidden_size: 384 # MATCHES nano.yaml
+  num_layers: 8 # MATCHES nano.yaml (all Mamba2 instead of 6 Mamba1 + 2 MLA)
+  num_heads: 6 # Used for attention layers (if hybrid, not used in pure Mamba2)
+
+  # Legacy configs (not used for pure Mamba2)
+  kv_heads: null
+  kv_latent_dim: null
+  q_latent_dim: null
+  d_rope: null
+
+  # MoE config (not used for pure Mamba2)
+  num_experts: null
+  experts_per_tok: null
+  shared_expert_enabled: null
+  intermediate_size: null
+
+  # Pure Mamba2 architecture (all 8 layers are Mamba2)
+  # This mirrors nano.yaml's 6 Mamba1 + 2 MLA pattern, but all Mamba2
+  mamba_layers: [0, 1, 2, 3, 4, 5, 6, 7] # All layers use Mamba2
+
+  # Mamba2 (State Space Duality) config
+  # CONSTRAINT: hidden_size * mamba2_expand == mamba2_num_heads * mamba2_head_dim
+  # Validation: 384 * 2 = 768 == 48 * 16 ✓
+  mamba2_num_heads: 48 # Number of SSM heads (more heads for larger model)
+  mamba2_head_dim: 16 # Dimension per head
+  mamba2_state_size: 64 # SSM state dimension N (standard)
+  mamba2_chunk_size: 64 # Chunk size for SSD (128/64 = 2 chunks)
+  mamba2_n_groups: 1 # Groups for efficient computation (1 = no grouping)
+  mamba2_conv_kernel: 4 # Conv1D kernel size (standard)
+  mamba2_expand: 2 # Expansion factor (intermediate = 768)
+
+  vocab_size: 128354 # Llama 3 + splintr agent tokens
+  max_seq_len: 512 # MATCHES nano.yaml
+  rope_theta: 10000.0 # MATCHES nano.yaml
+
+trainer:
+  learning_rate: 0.0003
+  max_steps: 0 # 0 = unlimited, train for full epochs
+  num_epochs: 2
+  batch_size: 4
+  gradient_accumulation: 1
+  checkpoint_dir: "./checkpoints/nano-mamba2"
+  log_interval: 10
+  save_interval: 500
+  load_balance_alpha: 0.0 # No MoE
+
+  # GRPO config (not used for pretraining)
+  group_size: 4
+  beta_kl: 0.04

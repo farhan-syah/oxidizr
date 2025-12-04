@@ -1,0 +1,73 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock file (uncomment if this is a library)
+# Cargo.lock
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Rust documentation
+/doc/
+
+# Training artifacts
+/checkpoints/
+*.safetensors
+*.bin
+*.pt
+
+# Data files
+/data/
+!/data/README.md
+!/data/nano-start/
+/data/nano-start/*
+!/data/nano-start/README.md
+*.txt
+*.json
+!Cargo.toml
+!src/**/*.json
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Python (if using any helper scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# System files
+Thumbs.db
+.directory
+
+# Temporary files
+*.tmp
+*.temp
+
+# Benchmark results
+/benches/results/
+
+# Generated files
+*.generated.*
+
+/tmp
+
+.claude
+
+/debug
+/runs
+/research
+/benchmark
