@@ -960,6 +960,7 @@ dependencies = [
  "candle-transformers",
  "chrono",
  "clap",
+ "cudarc 0.18.1",
  "env_logger",
  "half",
  "indicatif",

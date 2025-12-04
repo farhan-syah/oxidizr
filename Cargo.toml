@@ -26,7 +26,7 @@ default = []
 cuda = ["candle-core/cuda", "candle-nn/cuda"]
 # NCCL backend for high-performance multi-GPU gradient synchronization
 # Requires NCCL library installed on the system
-nccl = ["cuda"]
+nccl = ["cuda", "dep:cudarc"]
 
 [dependencies]
 # The Core ML Framework (git version for CUDA 13.x support)
@@ -54,3 +54,7 @@ chrono = "0.4.42"
 
 # Memory-mapped file I/O
 memmap2 = "0.9"
+
+# CUDA runtime (for NCCL support)
+# Uses same version as candle-core for compatibility
+cudarc = { version = "0.18", optional = true, default-features = false, features = ["driver", "nccl"] }
