@@ -39,6 +39,7 @@ model:
   rope_theta: 10000.0 # MATCHES nano.yaml
 
 trainer:
+  target_device: gpu
   learning_rate: 0.0003
   max_steps: 0 # 0 = unlimited, train for full epochs
   num_epochs: 2

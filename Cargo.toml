@@ -3,14 +3,14 @@ name = "oxidizr"
 version = "0.1.0"
 edition = "2021"
 authors = ["Farhan Syah <farhan@fs90.dev>"]
-description = "A Rust-based LLM training framework built on Candle"
-license = "MIT"
+description = "A Rust-based LLM training framework"
+license = "Apache-2.0"
 repository = "https://github.com/farhan-syah/oxidizr"
 homepage = "https://github.com/farhan-syah/oxidizr"
 documentation = "https://github.com/farhan-syah/oxidizr/tree/main/docs"
 readme = "README.md"
 keywords = ["llm", "machine-learning", "transformer", "mamba", "training"]
-categories = ["science", "command-line-utilities"]
+categories = ["science", "command-line-utilities", "development-tools"]
 exclude = [
     "checkpoints/",
     "runs/",
@@ -27,6 +27,8 @@ cuda = ["candle-core/cuda", "candle-nn/cuda"]
 # NCCL backend for high-performance multi-GPU gradient synchronization
 # Requires NCCL library installed on the system
 nccl = ["cuda", "dep:cudarc"]
+# HuggingFace Hub integration for model publishing
+huggingface = ["dep:hf-hub"]
 
 [dependencies]
 # The Core ML Framework (git version for CUDA 13.x support)
@@ -44,17 +46,27 @@ rand = "0.8"
 clap = { version = "4.5", features = ["derive"] }
 
 # UI/Logging
-indicatif = "0.17" # For nice progress bars
+indicatif = "0.17"  # For nice progress bars
 log = "0.4"
 env_logger = "0.11"
 
 # Math
-half = "2.4" # For BF16/FP16 types
+half = "2.4"      # For BF16/FP16 types
 chrono = "0.4.42"
 
 # Memory-mapped file I/O
 memmap2 = "0.9"
 
+# Environment and interactive CLI
+dotenvy = "0.15"
+dialoguer = "0.11"
+
+# HuggingFace Hub (optional, for model publishing)
+hf-hub = { version = "0.4", optional = true }
+
 # CUDA runtime (for NCCL support)
 # Uses same version as candle-core for compatibility
-cudarc = { version = "0.18", optional = true, default-features = false, features = ["driver", "nccl"] }
+cudarc = { version = "0.18", optional = true, default-features = false, features = [
+    "driver",
+    "nccl",
+] }

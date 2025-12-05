@@ -145,6 +145,13 @@ model:
 # =============================================================================
 trainer:
   # ---------------------------------------------------------------------------
+  # TARGET DEVICE
+  # ---------------------------------------------------------------------------
+  # gpu: Use CUDA GPU (requires --features cuda)
+  # cpu: Use CPU only (slower but works everywhere)
+  target_device: gpu
+
+  # ---------------------------------------------------------------------------
   # LEARNING RATE
   # ---------------------------------------------------------------------------
   # How big a step to take when updating weights
@@ -163,8 +170,8 @@ trainer:
   # Effective batch size = batch_size * gradient_accumulation
   # Larger effective batch = more stable gradients but slower iteration
 
-  batch_size: 8
-  gradient_accumulation: 1
+  batch_size: 4
+  gradient_accumulation: 2
 
   # ---------------------------------------------------------------------------
   # TRAINING DURATION

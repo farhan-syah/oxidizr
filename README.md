@@ -9,13 +9,22 @@ A Rust-based LLM training framework built on [Candle](https://github.com/hugging
 **Recommended: Install from Git** (supports CUDA 12.x and 13.x):
 
 ```bash
+# CPU-only
 cargo install --git https://github.com/farhan-syah/oxidizr
+
+# With CUDA support
+cargo install --git https://github.com/farhan-syah/oxidizr --features cuda
+
+# With CUDA + HuggingFace model publishing
+cargo install --git https://github.com/farhan-syah/oxidizr --features cuda,huggingface
 ```
 
 **From crates.io** (CUDA 12.x only):
 
 ```bash
 cargo install oxidizr
+cargo install oxidizr --features cuda
+cargo install oxidizr --features cuda,huggingface
 ```
 
 > **Note:** The crates.io version only supports CUDA 12.x. For CUDA 13.x support, install from Git.
@@ -33,7 +42,7 @@ pip install huggingface_hub
 hf download fs90/nano-start-data-bin --local-dir data/nano-start/tokenized --repo-type dataset
 
 # Train!
-cargo run --release -- -f models/nano-start.yaml -d data/nano-start/tokenized/combined.bin
+cargo run --release -- train -f models/nano-start.yaml -d data/nano-start/tokenized/combined.bin
 ```
 
 That's it! Training works on CPU out of the box - no GPU required.
@@ -42,10 +51,20 @@ That's it! Training works on CPU out of the box - no GPU required.
 
 ```bash
 cargo build --release --features cuda
-cargo run --release --features cuda -- -f models/nano-start.yaml -d data/nano-start/tokenized/combined.bin
+cargo run --release --features cuda -- train -f models/nano-start.yaml -d data/nano-start/tokenized/combined.bin
 ```
 
 GPU training is significantly faster but completely optional. CPU training is fully functional, just slower.
+
+**After training, package and share your model:**
+
+```bash
+# Package the trained model
+cargo run --release -- pack
+
+# Push to HuggingFace (requires --features huggingface)
+cargo run --release --features huggingface -- push
+```
 
 ## What is Oxidizr?
 
@@ -107,7 +126,7 @@ trainer:
 Run it:
 
 ```bash
-cargo run --release --features cuda -- -f my_model.yaml
+cargo run --release --features cuda -- train -f my_model.yaml
 ```
 
 ### Preparing Your Data
@@ -174,8 +193,25 @@ Configure hybrid models by specifying which layers use which architecture in you
 
 ## CLI Reference
 
+Oxidizr uses a subcommand-based CLI:
+
 ```bash
-cargo run --release --features cuda -- [OPTIONS]
+oxidizr <SUBCOMMAND> [OPTIONS]
+```
+
+### Subcommands
+
+- `train` - Train a model (default if -f flag is used)
+- `pack` - Package a trained model for distribution
+- `push` - Push a packaged model to HuggingFace Hub (requires `--features huggingface`)
+
+### Training
+
+```bash
+oxidizr train -f <config.yaml> [OPTIONS]
+
+# Or use the legacy shortcut (backwards compatible):
+oxidizr -f <config.yaml> [OPTIONS]
 
 Options:
   -f, --config <FILE>           Path to YAML configuration file (required)
@@ -191,6 +227,7 @@ Options:
   --resume <PATH|auto>          Resume from checkpoint (.safetensors) or "auto" for latest
   --headless                    Output JSON metrics only (for non-interactive terminals)
   --dtype <f32|f16|bf16>        Model precision (default: f32)
+  --max-checkpoints <N>         Maximum checkpoints to keep (default: 10)
   -h, --help                    Print help information
 ```
 
@@ -198,19 +235,22 @@ Options:
 
 ```bash
 # Basic training with default settings
+cargo run --release --features cuda -- train -f models/nano.yaml
+
+# Legacy syntax (backwards compatible)
 cargo run --release --features cuda -- -f models/nano.yaml
 
 # Force CPU execution
-cargo run --release -- -f models/nano.yaml --target-device cpu
+cargo run --release -- train -f models/nano.yaml --target-device cpu
 
 # Override batch size and sequence length
-cargo run --release --features cuda -- -f models/nano.yaml --batch-size 4 --seq-len 256
+cargo run --release --features cuda -- train -f models/nano.yaml --batch-size 4 --seq-len 256
 
 # Multi-GPU training (2 GPUs)
-cargo run --release --features cuda -- -f models/nano.yaml --gpus 0,1 --sync-backend cpu
+cargo run --release --features cuda -- train -f models/nano.yaml --gpus 0,1 --sync-backend cpu
 
 # Custom config file
-cargo run --release --features cuda -- -f experiments/my_config.yaml
+cargo run --release --features cuda -- train -f experiments/my_config.yaml
 ```
 
 ### Output Modes
@@ -228,7 +268,7 @@ cargo run --release --features cuda -- -f experiments/my_config.yaml
 
 ```bash
 # If progress bar doesn't appear, use headless mode
-cargo run --release -- -f models/nano.yaml --headless
+cargo run --release -- train -f models/nano.yaml --headless
 ```
 
 ### CPU vs GPU Training
@@ -236,11 +276,11 @@ cargo run --release -- -f models/nano.yaml --headless
 ```bash
 # CPU training (no CUDA required)
 cargo build --release
-cargo run --release -- -f models/nano.yaml --target-device cpu
+cargo run --release -- train -f models/nano.yaml --target-device cpu
 
 # GPU training (faster, requires CUDA)
 cargo build --release --features cuda
-cargo run --release --features cuda -- -f models/nano.yaml --target-device gpu
+cargo run --release --features cuda -- train -f models/nano.yaml --target-device gpu
 ```
 
 CPU training is fully functional - just slower. Great for:
@@ -249,16 +289,77 @@ CPU training is fully functional - just slower. Great for:
 - Systems without GPU
 - Debugging and development
 
+## Model Distribution
+
+After training, you can package and share your models:
+
+### Packaging Models
+
+```bash
+# Interactive mode - select checkpoint from TUI
+oxidizr pack
+
+# Non-interactive - specify checkpoint
+oxidizr pack --checkpoint latest
+oxidizr pack --checkpoint final
+oxidizr pack --checkpoint 10000  # specific step
+
+# Custom options
+oxidizr pack \
+  --checkpoint-dir ./checkpoints \
+  --checkpoint final \
+  --name my-model \
+  --username my-hf-username
+```
+
+This creates a packaged model in `hf/<username>/<model>/` with:
+
+- `model.safetensors` - Model weights
+- `config.json` - Inference configuration
+- `README.md` - Auto-generated model card
+
+### Publishing to HuggingFace
+
+Requires the `huggingface` feature flag and `huggingface-cli`:
+
+```bash
+# Build with HuggingFace support
+cargo build --release --features huggingface
+
+# Install HuggingFace CLI
+pip install huggingface_hub
+
+# Interactive mode - select model from list
+oxidizr push
+
+# Non-interactive - specify model
+oxidizr push --model hf/username/model-name
+
+# Create private repository
+oxidizr push --model hf/username/model-name --private
+```
+
+**Configuration**: Create a `.env` file (see `.env.example`):
+
+```env
+HF_USERNAME=your-username
+HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Get your token from [HuggingFace settings](https://huggingface.co/settings/tokens).
+
+See [hf/README.md](hf/README.md) for detailed documentation.
+
 ## Multi-GPU Training
 
 Oxidizr supports data-parallel training across multiple GPUs:
 
 ```bash
 # Train on GPUs 0, 1, 2, 3 with CPU backend
-cargo run --release --features cuda -- -f models/nano.yaml --gpus 0,1,2,3 --sync-backend cpu
+cargo run --release --features cuda -- train -f models/nano.yaml --gpus 0,1,2,3 --sync-backend cpu
 
 # Train with NCCL backend (faster for 4+ GPUs, requires nccl feature)
-cargo run --release --features cuda,nccl -- -f models/nano.yaml --gpus 0,1 --sync-backend nccl
+cargo run --release --features cuda,nccl -- train -f models/nano.yaml --gpus 0,1 --sync-backend nccl
 ```
 
 **How it works:**
@@ -443,7 +544,7 @@ Example: `batch_size=2`, `gradient_accumulation=4`, `num_gpus=2` → effective b
 Enable async data loading to overlap CPU I/O with GPU compute:
 
 ```bash
-cargo run --release --features cuda -- -f models/nano.yaml --prefetch 2
+cargo run --release --features cuda -- train -f models/nano.yaml --prefetch 2
 ```
 
 ## Development
@@ -474,4 +575,17 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Status**: Early Development | **Version**: 0.1.0 | **Last Updated**: 2025-12-05
+**Status**: Beta | **Version**: 0.1.0 | **Last Updated**: 2025-12-05
+
+## Citation
+
+If you use Splintr in your research, please cite:
+
+```bibtex
+@software{splintr,
+  author = {Farhan Syah},
+  title = {Oxidzr: A Rust-based LLM training framework},
+  year = {2025},
+  url = {https://github.com/farhan-syah/oxidizr}
+}
+```

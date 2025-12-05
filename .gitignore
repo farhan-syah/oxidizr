@@ -41,6 +41,10 @@
 .env
 .env.local
 
+# HuggingFace model packages (track directory, not model contents)
+/hf/*/
+!/hf/README.md
+
 # Python (if using any helper scripts)
 __pycache__/
 *.py[cod]
@@ -71,3 +75,4 @@ Thumbs.db
 /runs
 /research
 /benchmark
+CLAUDE.md
